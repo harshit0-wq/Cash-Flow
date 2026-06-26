@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cash-Flow | Salary & Expense Tracker</title>
+    
+    <!-- External Libraries (CDNs) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Tailwind Config for Custom Colors/Fonts -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            850: '#1e293b',
+                            900: '#0f172a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* Clean scrollbar for the expense list */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen selection:bg-blue-200">
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2"></div>
+
+    <!-- Navigation Header -->
+    <nav class="bg-slate-900 text-white shadow-md border-b border-slate-800 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <i data-lucide="wallet" class="text-blue-400"></i>
+                <h1 class="text-xl font-bold tracking-tight">Cash-Flow <span class="text-slate-400 font-normal text-sm ml-2 hidden sm:inline">Sprint 02 Module</span></h1>
+            </div>
+            <div class="flex items-center gap-3">
+                <button id="btn-currency" class="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 transition-colors px-3 py-1.5 rounded-md text-sm font-medium border border-slate-700">
+                    <i data-lucide="globe" class="w-4 h-4 text-blue-400"></i>
+                    <span id="currency-label">INR</span>
+                </button>
+                <button id="btn-export" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 transition-colors px-3 py-1.5 rounded-md text-sm font-medium">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Export PDF</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Critical Alert Banner (Hidden by default) -->
+    <div id="alert-banner" class="hidden bg-red-100 border-b-2 border-red-500 text-red-800 px-4 py-3 shadow-sm transition-all duration-300">
+        <div class="max-w-7xl mx-auto flex items-center gap-3">
+            <i data-lucide="alert-triangle" class="w-5 h-5 text-red-600"></i>
+            <div>
+                <p class="font-bold text-sm">Critical Warning</p>
+                <p class="text-xs sm:text-sm">Your remaining balance has dropped below 10% of your total salary. Please review your expenses immediately.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Currency Selection Modal (Hidden by default) -->
+    <div id="currency-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex-col items-center justify-center opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 overflow-hidden flex flex-col max-h-[80vh] transform scale-95 transition-transform duration-300" id="currency-modal-content">
+            <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                    <i data-lucide="globe" class="w-5 h-5 text-blue-500"></i> Select Currency
+                </h3>
+                <button onclick="closeCurrencyModal()" class="text-slate-400 hover:text-red-500 transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-4 border-b border-slate-200">
+                <div class="relative">
+                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+                    <input type="text" id="currency-search" placeholder="Search currency code or name..." 
+                        class="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-shadow">
+                </div>
+            </div>
+            <div class="overflow-y-auto p-2 custom-scrollbar flex-1" id="currency-list">
+                <!-- Injected dynamically via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard Layout -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- Left Column: Inputs (5 Cols) -->
+            <div class="lg:col-span-5 space-y-6">
+                
+                <!-- Setup Salary Card -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                    <h2 class="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                        <i data-lucide="landmark" class="w-5 h-5 text-green-500"></i>
+                        Income Configuration
+                    </h2>
+                    <form id="salary-form" class="space-y-4">
+                        <div>
+                            <label for="salary-input" class="block text-sm font-medium text-slate-600 mb-1">Total Salary Base</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <span class="text-slate-400 currency-symbol">₹</span>
+                                </div>
+                                <input type="number" id="salary-input" step="0.01" placeholder="Enter your total salary..." 
+                                    class="w-full pl-8 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full bg-slate-900 text-white font-medium py-2 px-4 rounded-lg hover:bg-slate-800 transition-colors">
+                            Update Salary Base
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Add Expense Card -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                    <h2 class="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                        <i data-lucide="receipt" class="w-5 h-5 text-blue-500"></i>
+                        Log New Expense
+                    </h2>
+                    <form id="expense-form" class="space-y-4">
+                        <div>
+                            <label for="expense-name" class="block text-sm font-medium text-slate-600 mb-1">Expense Name</label>
+                            <input type="text" id="expense-name" placeholder="e.g., Rent, Groceries, Cloud Hosting..." 
+                                class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow" required>
+                        </div>
+                        <div>
+                            <label for="expense-amount" class="block text-sm font-medium text-slate-600 mb-1">Amount</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <span class="text-slate-400 currency-symbol">₹</span>
+                                </div>
+                                <input type="number" id="expense-amount" step="0.01" placeholder="0.00" 
+                                    class="w-full pl-8 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex justify-center items-center gap-2">
+                            <i data-lucide="plus-circle" class="w-4 h-4"></i> Add Expense
+                        </button>
+                    </form>
+                </div>
+
+            </div>
+
+            <!-- Right Column: Visualization & Summary (7 Cols) -->
+            <div class="lg:col-span-7 space-y-6">
+                
+                <!-- Financial Overview Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Total Salary</p>
+                        <p id="display-salary" class="text-2xl font-bold text-slate-800">₹0.00</p>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Total Expenses</p>
+                        <p id="display-expenses" class="text-2xl font-bold text-slate-800">₹0.00</p>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Remaining Balance</p>
+                        <p id="display-balance" class="text-2xl font-bold text-green-600 transition-colors duration-300">₹0.00</p>
+                    </div>
+                </div>
+
+                <!-- Visualization Chart -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col items-center justify-center min-h-[320px]">
+                    <h2 class="text-sm font-semibold text-slate-600 self-start w-full mb-4 uppercase tracking-wide">Cash Flow Distribution</h2>
+                    <div class="relative w-full max-w-[280px] aspect-square flex items-center justify-center">
+                        <canvas id="expenseChart"></canvas>
+                        <!-- Empty State Overlay for Chart -->
+                        <div id="chart-empty-state" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-white/90">
+                            <i data-lucide="pie-chart" class="w-10 h-10 mb-2 opacity-50"></i>
+                            <p class="text-sm font-medium">Awaiting Data</p>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+
+            <!-- Full Width Bottom Section: Expense List -->
+            <div class="lg:col-span-12">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full max-h-[500px]">
+                    <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                        <h2 class="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                            <i data-lucide="list" class="w-5 h-5 text-slate-500"></i>
+                            Expense Ledger
+                        </h2>
+                        <span class="text-xs font-medium text-slate-500 bg-slate-200 px-2 py-1 rounded-full"><span id="expense-count">0</span> Items</span>
+                    </div>
+                    
+                    <div class="overflow-y-auto custom-scrollbar p-6 flex-1">
+                        <div id="expense-list" class="space-y-3">
+                            <!-- Injected dynamically via JS -->
+                        </div>
+                        
+                        <!-- Empty State for List -->
+                        <div id="list-empty-state" class="hidden flex-col items-center justify-center py-10 text-slate-400">
+                            <i data-lucide="inbox" class="w-12 h-12 mb-3 opacity-50"></i>
+                            <p class="text-sm font-medium">No expenses logged yet.</p>
+                            <p class="text-xs mt-1">Add an expense to see it here.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Vanilla JavaScript Core Logic -->
+    <script>
+        /**
+         * SPRINT 02 ARCHITECTURE
+         * - Single Source of Truth Base: INR
+         * - Frameworks used: None (Vanilla JS)
+         * - External APIs: open.er-api.com (Currency), jsPDF, Chart.js
+         */
+
+        // --- STATE MANAGEMENT ---
+        const STORAGE_KEY = 'cashFlowState_Sprint02';
+        
+        let state = {
+            salary: 0,           // Stored in base currency (INR)
+            expenses: [],        // Array of objects { id, name, amount (in base INR) }
+            currentCurrency: 'INR', 
+            currencies: {},      // Dynamically fetched currency list
+            rates: {}            // Dynamically fetched rates against USD
+        };
+
+        let expenseChartInstance = null;
+
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            lucide.createIcons();
+            loadStateFromStorage();
+            await fetchExchangeRates();
+            setupEventListeners();
+            updateUIAfterCurrencyChange(); // Ensure symbols render on load
+            renderEngine();
+        });
+
+        // --- LOCAL STORAGE PROTOCOLS ---
+        function loadStateFromStorage() {
+            try {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                if (stored) {
+                    const parsed = JSON.parse(stored);
+                    state.salary = parseFloat(parsed.salary) || 0;
+                    state.expenses = Array.isArray(parsed.expenses) ? parsed.expenses : [];
+                    state.currentCurrency = parsed.currentCurrency || 'INR';
+                }
+            } catch (err) {
+                console.error("Storage serialization error:", err);
+                showToast("Failed to load previous data.", "error");
+            }
+        }
+
+        function saveStateToStorage() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                salary: state.salary,
+                expenses: state.expenses,
+                currentCurrency: state.currentCurrency
+            }));
+        }
+
+        // --- EXTERNAL API (CURRENCY EXCHANGE) ---
+        async function fetchExchangeRates() {
+            try {
+                // Fetch comprehensive exchange rates (161 world currencies) using a free open endpoint
+                const rateRes = await fetch('https://open.er-api.com/v6/latest/USD');
+                if (!rateRes.ok) throw new Error("Rates API Network error");
+                const rateData = await rateRes.json();
+                
+                state.rates = rateData.rates;
+                
+                // Comprehensive mapping of world currency names for the search feature
+                const worldCurrencies = {
+                    "AED": "United Arab Emirates Dirham", "AFN": "Afghan Afghani", "ALL": "Albanian Lek", "AMD": "Armenian Dram", "ANG": "Netherlands Antillean Guilder", "AOA": "Angolan Kwanza", "ARS": "Argentine Peso", "AUD": "Australian Dollar", "AWG": "Aruban Florin", "AZN": "Azerbaijani Manat", "BAM": "Bosnia-Herzegovina Convertible Mark", "BBD": "Barbadian Dollar", "BDT": "Bangladeshi Taka", "BGN": "Bulgarian Lev", "BHD": "Bahraini Dinar", "BIF": "Burundian Franc", "BMD": "Bermudan Dollar", "BND": "Brunei Dollar", "BOB": "Bolivian Boliviano", "BRL": "Brazilian Real", "BSD": "Bahamian Dollar", "BTN": "Bhutanese Ngultrum", "BWP": "Botswanan Pula", "BYN": "Belarusian Ruble", "BZD": "Belize Dollar", "CAD": "Canadian Dollar", "CDF": "Congolese Franc", "CHF": "Swiss Franc", "CLP": "Chilean Peso", "CNY": "Chinese Yuan", "COP": "Colombian Peso", "CRC": "Costa Rican Colón", "CUP": "Cuban Peso", "CVE": "Cape Verdean Escudo", "CZK": "Czech Republic Koruna", "DJF": "Djiboutian Franc", "DKK": "Danish Krone", "DOP": "Dominican Peso", "DZD": "Algerian Dinar", "EGP": "Egyptian Pound", "ERN": "Eritrean Nakfa", "ETB": "Ethiopian Birr", "EUR": "Euro", "FJD": "Fijian Dollar", "FKP": "Falkland Islands Pound", "GBP": "British Pound Sterling", "GEL": "Georgian Lari", "GHS": "Ghanaian Cedi", "GIP": "Gibraltar Pound", "GMD": "Gambian Dalasi", "GNF": "Guinean Franc", "GTQ": "Guatemalan Quetzal", "GYD": "Guyanaese Dollar", "HKD": "Hong Kong Dollar", "HNL": "Honduran Lempira", "HRK": "Croatian Kuna", "HTG": "Haitian Gourde", "HUF": "Hungarian Forint", "IDR": "Indonesian Rupiah", "ILS": "Israeli New Sheqel", "INR": "Indian Rupee", "IQD": "Iraqi Dinar", "IRR": "Iranian Rial", "ISK": "Icelandic Króna", "JMD": "Jamaican Dollar", "JOD": "Jordanian Dinar", "JPY": "Japanese Yen", "KES": "Kenyan Shilling", "KGS": "Kyrgystani Som", "KHR": "Cambodian Riel", "KMF": "Comorian Franc", "KPW": "North Korean Won", "KRW": "South Korean Won", "KWD": "Kuwaiti Dinar", "KYD": "Cayman Islands Dollar", "KZT": "Kazakhstani Tenge", "LAK": "Laotian Kip", "LBP": "Lebanese Pound", "LKR": "Sri Lankan Rupee", "LRD": "Liberian Dollar", "LSL": "Lesotho Loti", "LYD": "Libyan Dinar", "MAD": "Moroccan Dirham", "MDL": "Moldovan Leu", "MGA": "Malagasy Ariary", "MKD": "Macedonian Denar", "MMK": "Myanma Kyat", "MNT": "Mongolian Tugrik", "MOP": "Macanese Pataca", "MRU": "Mauritanian Ouguiya", "MUR": "Mauritian Rupee", "MVR": "Maldivian Rufiyaa", "MWK": "Malawian Kwacha", "MXN": "Mexican Peso", "MYR": "Malaysian Ringgit", "MZN": "Mozambican Metical", "NAD": "Namibian Dollar", "NGN": "Nigerian Naira", "NIO": "Nicaraguan Córdoba", "NOK": "Norwegian Krone", "NPR": "Nepalese Rupee", "NZD": "New Zealand Dollar", "OMR": "Omani Rial", "PAB": "Panamanian Balboa", "PEN": "Peruvian Nuevo Sol", "PGK": "Papua New Guinean Kina", "PHP": "Philippine Peso", "PKR": "Pakistani Rupee", "PLN": "Polish Zloty", "PYG": "Paraguayan Guarani", "QAR": "Qatari Rial", "RON": "Romanian Leu", "RSD": "Serbian Dinar", "RUB": "Russian Ruble", "RWF": "Rwandan Franc", "SAR": "Saudi Riyal", "SBD": "Solomon Islands Dollar", "SCR": "Seychellois Rupee", "SDG": "Sudanese Pound", "SEK": "Swedish Krona", "SGD": "Singapore Dollar", "SHP": "Saint Helena Pound", "SLL": "Sierra Leonean Leone", "SOS": "Somali Shilling", "SRD": "Surinamese Dollar", "SSP": "South Sudanese Pound", "STN": "São Tomé and Príncipe Dobra", "SYP": "Syrian Pound", "SZL": "Swazi Lilangeni", "THB": "Thai Baht", "TJS": "Tajikistani Somoni", "TMT": "Turkmenistani Manat", "TND": "Tunisian Dinar", "TOP": "Tongan Paʻanga", "TRY": "Turkish Lira", "TTD": "Trinidad and Tobago Dollar", "TWD": "New Taiwan Dollar", "TZS": "Tanzanian Shilling", "UAH": "Ukrainian Hryvnia", "UGX": "Ugandan Shilling", "USD": "US Dollar", "UYU": "Uruguayan Peso", "UZS": "Uzbekistan Som", "VES": "Venezuelan Bolívar", "VND": "Vietnamese Dong", "VUV": "Vanuatu Vatu", "WST": "Samoan Tala", "XAF": "CFA Franc BEAC", "XCD": "East Caribbean Dollar", "XOF": "CFA Franc BCEAO", "XPF": "CFP Franc", "YER": "Yemeni Rial", "ZAR": "South African Rand", "ZMW": "Zambian Kwacha", "ZWL": "Zimbabwean Dollar"
+                };
+
+                // Safely map the returned rates to their full names
+                state.currencies = {};
+                Object.keys(state.rates).forEach(code => {
+                    state.currencies[code] = worldCurrencies[code] || `${code} Currency`;
+                });
+                
+                // Ensure Base currency fallback exists just in case
+                if(!state.rates['INR']) state.rates['INR'] = 83.5;
+                if(!state.currencies['INR']) state.currencies['INR'] = "Indian Rupee";
+
+                console.log(`Successfully mapped ${Object.keys(state.currencies).length} world currencies.`);
+            } catch (err) {
+                console.warn("Currency API offline or blocked. Using local fallbacks.", err);
+                state.currencies = { "INR": "Indian Rupee", "USD": "US Dollar", "EUR": "Euro", "GBP": "British Pound", "JPY": "Japanese Yen", "CAD": "Canadian Dollar", "AUD": "Australian Dollar" };
+                state.rates = { "USD": 1, "INR": 83.5, "EUR": 0.92, "GBP": 0.79, "JPY": 150.2, "CAD": 1.37, "AUD": 1.50 };
+            }
+        }
+
+        // --- DOM EVENT LISTENERS ---
+        function setupEventListeners() {
+            document.getElementById('salary-form').addEventListener('submit', handleSalarySubmission);
+            document.getElementById('expense-form').addEventListener('submit', handleExpenseSubmission);
+            document.getElementById('btn-currency').addEventListener('click', openCurrencyModal);
+            document.getElementById('btn-export').addEventListener('click', generatePDFReport);
+            document.getElementById('currency-search').addEventListener('input', (e) => renderCurrencyList(e.target.value));
+        }
+
+        // --- CORE LOGIC & MUTATIONS ---
+        function handleSalarySubmission(e) {
+            e.preventDefault();
+            const inputVal = parseFloat(document.getElementById('salary-input').value);
+            
+            if (isNaN(inputVal) || inputVal < 0) {
+                showToast("Please enter a valid positive number for salary.", "error");
+                return;
+            }
+
+            // Convert inputted target currency value back to base INR for pure storage
+            const inrRate = state.rates['INR'] || 83.5;
+            const targetRate = state.rates[state.currentCurrency] || 1;
+            state.salary = (inputVal / targetRate) * inrRate;
+            
+            saveStateToStorage();
+            document.getElementById('salary-input').value = '';
+            showToast("Salary updated successfully.", "success");
+            renderEngine();
+        }
+
+        function handleExpenseSubmission(e) {
+            e.preventDefault();
+            const nameInput = document.getElementById('expense-name').value.trim();
+            const amountInput = parseFloat(document.getElementById('expense-amount').value);
+
+            if (!nameInput) {
+                showToast("Expense name cannot be empty.", "error");
+                return;
+            }
+            if (isNaN(amountInput) || amountInput <= 0) {
+                showToast("Expense amount must be a positive number.", "error");
+                return;
+            }
+
+            // Convert amount to base currency (INR) for storage
+            const inrRate = state.rates['INR'] || 83.5;
+            const targetRate = state.rates[state.currentCurrency] || 1;
+            const baseAmount = (amountInput / targetRate) * inrRate;
+
+            const newExpense = {
+                id: Date.now().toString(), // Unique ID generation
+                name: nameInput,
+                amount: baseAmount
+            };
+
+            state.expenses.unshift(newExpense); // Add to beginning of list
+            saveStateToStorage();
+            
+            // Reset form
+            document.getElementById('expense-form').reset();
+            showToast("Expense logged successfully.", "success");
+            renderEngine();
+        }
+
+        function deleteExpense(id) {
+            state.expenses = state.expenses.filter(exp => exp.id !== id);
+            saveStateToStorage();
+            showToast("Expense removed.", "success");
+            renderEngine();
+        }
+
+        // --- CURRENCY MODAL LOGIC ---
+        function openCurrencyModal() {
+            const modal = document.getElementById('currency-modal');
+            const content = document.getElementById('currency-modal-content');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            // Animate In
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('scale-95');
+            }, 10);
+
+            renderCurrencyList('');
+            document.getElementById('currency-search').focus();
+        }
+
+        function closeCurrencyModal() {
+            const modal = document.getElementById('currency-modal');
+            const content = document.getElementById('currency-modal-content');
+            
+            // Animate Out
+            modal.classList.add('opacity-0');
+            content.classList.add('scale-95');
+
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                document.getElementById('currency-search').value = '';
+            }, 300);
+        }
+
+        function renderCurrencyList(searchTerm) {
+            const listEl = document.getElementById('currency-list');
+            listEl.innerHTML = '';
+            
+            const term = searchTerm.toLowerCase();
+            let filteredCurrencies = Object.entries(state.currencies).filter(([code, name]) => 
+                code.toLowerCase().includes(term) || name.toLowerCase().includes(term)
+            );
+
+            if (filteredCurrencies.length === 0) {
+                listEl.innerHTML = `<p class="text-center text-slate-400 py-6 text-sm">No matching currencies found.</p>`;
+                return;
+            }
+
+            // Sort currencies alphabetically by their currency code
+            filteredCurrencies.sort((a, b) => a[0].localeCompare(b[0]));
+
+            // Pin INR (Indian Rupee) to the absolute top if it exists in the current filter
+            const inrIndex = filteredCurrencies.findIndex(([code]) => code === 'INR');
+            if (inrIndex > -1) {
+                const inrData = filteredCurrencies.splice(inrIndex, 1)[0];
+                filteredCurrencies.unshift(inrData); // Add INR to the beginning of the array
+            }
+
+            filteredCurrencies.forEach(([code, name]) => {
+                const isSelected = state.currentCurrency === code;
+                const btn = document.createElement('button');
+                btn.className = `w-full text-left px-4 py-3 rounded-lg flex justify-between items-center transition-colors mb-1 ${isSelected ? 'bg-blue-50 border-blue-200 border' : 'hover:bg-slate-100 border border-transparent'}`;
+                btn.onclick = () => selectCurrency(code);
+                
+                btn.innerHTML = `
+                    <div class="flex flex-col">
+                        <span class="font-bold ${isSelected ? 'text-blue-700' : 'text-slate-700'}">${code}</span>
+                        <span class="text-xs text-slate-500">${name}</span>
+                    </div>
+                    ${isSelected ? `<i data-lucide="check" class="w-5 h-5 text-blue-600"></i>` : ''}
+                `;
+                listEl.appendChild(btn);
+            });
+            lucide.createIcons();
+        }
+
+        function selectCurrency(code) {
+            state.currentCurrency = code;
+            saveStateToStorage();
+            closeCurrencyModal();
+            updateUIAfterCurrencyChange();
+            renderEngine();
+            showToast(`Currency switched to ${code}`, "success");
+        }
+
+        function updateUIAfterCurrencyChange() {
+            document.getElementById('currency-label').innerText = state.currentCurrency;
+            
+            // Get accurate locale symbol using Intl
+            const symbol = getCurrencySymbol(state.currentCurrency);
+            const symbolEls = document.querySelectorAll('.currency-symbol');
+            symbolEls.forEach(el => el.innerText = symbol);
+        }
+
+        // --- DATA VISUALIZATION & RENDER ENGINE ---
+        function renderEngine() {
+            // 1. Calculate Aggregates (Math Logic)
+            const totalExpensesBase = state.expenses.reduce((sum, exp) => sum + exp.amount, 0);
+            const remainingBalanceBase = state.salary - totalExpensesBase;
+
+            // 2. Format based on Active Currency
+            const currentSalary = formatCurrency(state.salary);
+            const currentExpenses = formatCurrency(totalExpensesBase);
+            const currentBalance = formatCurrency(remainingBalanceBase);
+
+            // 3. Update DOM Elements
+            document.getElementById('display-salary').innerText = currentSalary;
+            document.getElementById('display-expenses').innerText = currentExpenses;
+            
+            const balanceEl = document.getElementById('display-balance');
+            balanceEl.innerText = currentBalance;
+
+            // 4. Threshold Logic Check (P2 Feature)
+            const alertBanner = document.getElementById('alert-banner');
+            if (state.salary > 0 && remainingBalanceBase < (0.1 * state.salary)) {
+                // Warning State Triggered
+                alertBanner.classList.remove('hidden');
+                balanceEl.classList.remove('text-green-600');
+                balanceEl.classList.add('text-red-600');
+            } else {
+                // Safe State
+                alertBanner.classList.add('hidden');
+                balanceEl.classList.add('text-green-600');
+                balanceEl.classList.remove('text-red-600');
+            }
+
+            // 5. Render Components
+            renderExpenseList();
+            renderPieChart(totalExpensesBase, Math.max(0, remainingBalanceBase));
+        }
+
+        function renderExpenseList() {
+            const listEl = document.getElementById('expense-list');
+            const emptyStateEl = document.getElementById('list-empty-state');
+            document.getElementById('expense-count').innerText = state.expenses.length;
+
+            listEl.innerHTML = '';
+
+            if (state.expenses.length === 0) {
+                listEl.classList.add('hidden');
+                emptyStateEl.classList.remove('hidden');
+                emptyStateEl.classList.add('flex');
+                return;
+            }
+
+            listEl.classList.remove('hidden');
+            emptyStateEl.classList.add('hidden');
+            emptyStateEl.classList.remove('flex');
+
+            state.expenses.forEach(exp => {
+                const item = document.createElement('div');
+                item.className = 'flex justify-between items-center p-3 sm:p-4 bg-white border border-slate-100 rounded-lg shadow-sm hover:shadow-md transition-shadow group';
+                
+                // Using standard string interpolation for DOM building
+                item.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="bg-blue-100 p-2 rounded-md text-blue-600">
+                            <i data-lucide="tag" class="w-4 h-4"></i>
+                        </div>
+                        <div>
+                            <p class="font-medium text-slate-800 text-sm sm:text-base">${escapeHTML(exp.name)}</p>
+                            <p class="text-xs text-slate-400">ID: ${exp.id.slice(-6)}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <span class="font-semibold text-slate-700 text-sm sm:text-base">${formatCurrency(exp.amount)}</span>
+                        <button onclick="deleteExpense('${exp.id}')" class="text-slate-300 hover:text-red-500 transition-colors p-1" title="Delete Expense">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                `;
+                listEl.appendChild(item);
+            });
+
+            // Re-initialize icons for newly added DOM elements
+            lucide.createIcons();
+        }
+
+        function renderPieChart(expenses, balance) {
+            const ctx = document.getElementById('expenseChart');
+            const emptyState = document.getElementById('chart-empty-state');
+
+            // Destroy previous instance to avoid canvas corruption (FAQ #8)
+            if (expenseChartInstance) {
+                expenseChartInstance.destroy();
+            }
+
+            if (state.salary === 0 && expenses === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            
+            emptyState.classList.add('hidden');
+
+            // Initialize new Chart.js instance
+            expenseChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Total Expenses', 'Remaining Balance'],
+                    datasets: [{
+                        data: [expenses, balance],
+                        backgroundColor: ['#ef4444', '#22c55e'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    // Tooltip formatter ensuring correct currency display
+                                    let rawVal = context.raw;
+                                    return ' ' + formatCurrency(rawVal);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- UTILITY FUNCTIONS ---
+        
+        // Handles internal unit to display unit conversion + localization
+        function formatCurrency(baseAmount) {
+            // baseAmount is always in INR. Cross-calculate to target via USD anchor.
+            const inrRate = state.rates['INR'] || 83.5;
+            const targetRate = state.rates[state.currentCurrency] || 1;
+            
+            const amountInUSD = baseAmount / inrRate;
+            const displayVal = amountInUSD * targetRate;
+
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: state.currentCurrency,
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(displayVal);
+        }
+
+        // Extract raw symbol for input fields
+        function getCurrencySymbol(currencyCode) {
+            const formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: currencyCode });
+            const parts = formatter.formatToParts(0);
+            const symbolPart = parts.find(part => part.type === 'currency');
+            return symbolPart ? symbolPart.value : currencyCode;
+        }
+
+        // XSS Prevention helper
+        function escapeHTML(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // Custom Message Box (No alerts allowed)
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const bgColor = type === 'error' ? 'bg-red-600' : 'bg-slate-800';
+            const icon = type === 'error' ? 'alert-circle' : 'check-circle';
+            
+            toast.className = `${bgColor} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 transform transition-all duration-300 translate-x-full opacity-0`;
+            toast.innerHTML = `
+                <i data-lucide="${icon}" class="w-5 h-5"></i>
+                <p class="text-sm font-medium">${message}</p>
+            `;
+            
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            // Animate in
+            setTimeout(() => {
+                toast.classList.remove('translate-x-full', 'opacity-0');
+            }, 10);
+
+            // Animate out and remove
+            setTimeout(() => {
+                toast.classList.add('translate-x-full', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // --- PDF REPORT GENERATION (jsPDF) ---
+        function generatePDFReport() {
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                const pageWidth = doc.internal.pageSize.getWidth();
+                let yPosition = 20;
+
+                // Header
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(22);
+                doc.text("Cash-Flow Financial Report", 14, yPosition);
+                
+                yPosition += 10;
+                doc.setFontSize(10);
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(100);
+                doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, yPosition);
+                doc.text(`Reporting Currency: ${state.currentCurrency}`, pageWidth - 14, yPosition, { align: 'right' });
+
+                doc.setDrawColor(200);
+                doc.line(14, yPosition + 5, pageWidth - 14, yPosition + 5);
+                yPosition += 15;
+
+                // Summary Block
+                const totalExpBase = state.expenses.reduce((sum, e) => sum + e.amount, 0);
+                const balanceBase = state.salary - totalExpBase;
+
+                doc.setFontSize(12);
+                doc.setTextColor(20, 20, 20);
+                doc.text(`Total Salary: ${formatCurrency(state.salary)}`, 14, yPosition);
+                yPosition += 8;
+                doc.text(`Total Expenses: ${formatCurrency(totalExpBase)}`, 14, yPosition);
+                yPosition += 8;
+                doc.setFont("helvetica", "bold");
+                
+                if (balanceBase < 0) doc.setTextColor(220, 38, 38); // Red if negative
+                else doc.setTextColor(22, 163, 74); // Green if positive
+                doc.text(`Remaining Balance: ${formatCurrency(balanceBase)}`, 14, yPosition);
+                
+                doc.setTextColor(20, 20, 20);
+                doc.setFont("helvetica", "normal");
+                yPosition += 15;
+                doc.line(14, yPosition, pageWidth - 14, yPosition);
+                yPosition += 15;
+
+                // Expenses List
+                doc.setFontSize(14);
+                doc.setFont("helvetica", "bold");
+                doc.text("Expense Ledger Details", 14, yPosition);
+                yPosition += 10;
+                
+                doc.setFontSize(11);
+                doc.setFont("helvetica", "normal");
+
+                if (state.expenses.length === 0) {
+                    doc.setTextColor(150);
+                    doc.text("No expenses recorded for this period.", 14, yPosition);
+                } else {
+                    state.expenses.forEach((exp, index) => {
+                        // Check for page overflow
+                        if (yPosition > 270) {
+                            doc.addPage();
+                            yPosition = 20;
+                        }
+                        
+                        doc.text(`${index + 1}.`, 14, yPosition);
+                        doc.text(`${exp.name}`, 22, yPosition);
+                        doc.text(`${formatCurrency(exp.amount)}`, pageWidth - 14, yPosition, { align: 'right' });
+                        
+                        yPosition += 8;
+                        
+                        // Add light separator
+                        doc.setDrawColor(240);
+                        doc.line(14, yPosition - 4, pageWidth - 14, yPosition - 4);
+                    });
+                }
+
+                // Save
+                doc.save(`Cash-Flow-Report-${new Date().toISOString().split('T')[0]}.pdf`);
+                showToast("PDF Report successfully generated and downloaded.", "success");
+
+            } catch (error) {
+                console.error("PDF Generation failed:", error);
+                showToast("Failed to generate PDF. Check console logs.", "error");
+            }
+        }
+
+    </script>
+</body>
+</html>
