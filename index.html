@@ -70,13 +70,13 @@
         </div>
     </nav>
 
-    <!-- Critical Alert Banner (Hidden by default) -->
-    <div id="alert-banner" class="hidden bg-red-100 border-b-2 border-red-500 text-red-800 px-4 py-3 shadow-sm transition-all duration-300">
+    <!-- Dynamic Alert Banner (Hidden by default) -->
+    <div id="alert-banner" class="hidden border-b-2 px-4 py-3 shadow-sm transition-all duration-300">
         <div class="max-w-7xl mx-auto flex items-center gap-3">
-            <i data-lucide="alert-triangle" class="w-5 h-5 text-red-600"></i>
+            <i id="alert-icon" data-lucide="alert-triangle" class="w-5 h-5"></i>
             <div>
-                <p class="font-bold text-sm">Critical Warning</p>
-                <p class="text-xs sm:text-sm">Your remaining balance has dropped below 10% of your total salary. Please review your expenses immediately.</p>
+                <p id="alert-title" class="font-bold text-sm">Warning</p>
+                <p id="alert-desc" class="text-xs sm:text-sm">Please review your expenses.</p>
             </div>
         </div>
     </div>
@@ -495,22 +495,48 @@
             document.getElementById('display-salary').innerText = currentSalary;
             document.getElementById('display-expenses').innerText = currentExpenses;
             
+            // 4. Threshold Logic Check (Red for Negative, Yellow for < 10%, Green for normal)
             const balanceEl = document.getElementById('display-balance');
+            const alertBanner = document.getElementById('alert-banner');
+            const alertIcon = document.getElementById('alert-icon');
+            const alertTitle = document.getElementById('alert-title');
+            const alertDesc = document.getElementById('alert-desc');
+
             balanceEl.innerText = currentBalance;
 
-            // 4. Threshold Logic Check (P2 Feature)
-            const alertBanner = document.getElementById('alert-banner');
-            if (state.salary > 0 && remainingBalanceBase < (0.1 * state.salary)) {
-                // Warning State Triggered
-                alertBanner.classList.remove('hidden');
-                balanceEl.classList.remove('text-green-600');
+            // Clear previous dynamic state classes
+            balanceEl.className = 'text-2xl font-bold transition-colors duration-300';
+            alertBanner.className = 'hidden border-b-2 px-4 py-3 shadow-sm transition-all duration-300';
+
+            if (remainingBalanceBase < 0) {
+                // Critical State: Negative Balance
                 balanceEl.classList.add('text-red-600');
+                
+                alertBanner.classList.remove('hidden');
+                alertBanner.classList.add('bg-red-100', 'border-red-500', 'text-red-800');
+                alertIcon.className = 'w-5 h-5 text-red-600';
+                alertIcon.setAttribute('data-lucide', 'x-octagon');
+                alertTitle.innerText = 'Deficit Warning';
+                alertDesc.innerText = 'Your remaining balance is negative. You have exceeded your salary!';
+                
+            } else if (state.salary > 0 && remainingBalanceBase < (0.1 * state.salary)) {
+                // Warning State: Below 10%
+                balanceEl.classList.add('text-amber-500'); // Amber is highly readable yellow
+                
+                alertBanner.classList.remove('hidden');
+                alertBanner.classList.add('bg-amber-100', 'border-amber-500', 'text-amber-800');
+                alertIcon.className = 'w-5 h-5 text-amber-600';
+                alertIcon.setAttribute('data-lucide', 'alert-triangle');
+                alertTitle.innerText = 'Low Balance Alert';
+                alertDesc.innerText = 'Your remaining balance has dropped below 10% of your total salary.';
+                
             } else {
-                // Safe State
-                alertBanner.classList.add('hidden');
+                // Safe State: Green
                 balanceEl.classList.add('text-green-600');
-                balanceEl.classList.remove('text-red-600');
             }
+
+            // Refresh icons if the alert icon changed
+            lucide.createIcons();
 
             // 5. Render Components
             renderExpenseList();
@@ -744,8 +770,15 @@
                 doc.text(`Total Expenses: ${cleanFormat(totalExpBase)}`, 14, yPosition);
                 yPosition += 8;
                 
-                if (balanceBase < 0) doc.setTextColor(220, 38, 38); // Red if negative
-                else doc.setTextColor(22, 163, 74); // Green if positive
+                // Set text color based on our new threshold logic for the PDF!
+                if (balanceBase < 0) {
+                    doc.setTextColor(220, 38, 38); // Red
+                } else if (state.salary > 0 && balanceBase < (0.1 * state.salary)) {
+                    doc.setTextColor(217, 119, 6); // Amber/Yellow
+                } else {
+                    doc.setTextColor(22, 163, 74); // Green
+                }
+
                 doc.text(`Remaining Balance: ${cleanFormat(balanceBase)}`, 14, yPosition);
                 
                 doc.setTextColor(20, 20, 20);
