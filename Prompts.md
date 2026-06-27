@@ -14,7 +14,8 @@ Purpose:
 Identify a reliable, free, and keyless API (open.er-api.com) to fetch live global exchange rates.
 Expand the currency conversion feature to support 161 world national currencies.
 Ensure accurate mathematical conversions across the dashboard using USD as a base anchor.
-Prompt 03: Array Manipulation & UI Sorting
+
+##Prompt 03: Array Manipulation & UI Sorting
 Purpose:
 
 Enhance the user experience of the currency search modal.
