@@ -1,81 +1,124 @@
-Cash-Flow Dashboard — Salary & Expense Tracker (Sprint 02)
+# Cash-Flow Dashboard — Salary & Expense Tracker (Sprint 02)
 
-A responsive and dynamic financial dashboard built to track salaries and log expenses. This project was developed as part of Sprint 02 to demonstrate core engineering logic, Vanilla JavaScript mastery, manual DOM manipulation, and data persistence without relying on modern abstraction layers like React.
+A responsive and dynamic financial dashboard built to track salaries and manage expenses. This project was developed as part of Sprint 02 to demonstrate core JavaScript concepts including DOM manipulation, event handling, state management, and data persistence using Vanilla JavaScript without relying on frontend frameworks.
 
-Live Deployment
+## Live Deployment
 
-Live Demo: [https://cash-flow-chi-six.vercel.app/]
+**Live Demo:** [Add Deployment URL Here]
 
-Features
+---
 
-Core MVP
+## Features
 
-Input Architecture: Dedicated forms to capture base salary and individual line-item expenses.
+### Core MVP
 
-Logic Engine: Real-time mathematical calculation of Total Salary, Total Expenses, and Remaining Balance.
+* Dedicated forms for capturing salary and expense information.
+* Real-time calculation of:
 
-Validation Protocols: Prevents negative number injections and empty string submissions natively.
+  * Total Salary
+  * Total Expenses
+  * Remaining Balance
+* Input validation to prevent empty submissions and invalid values.
+* Dynamic rendering of expense items directly to the DOM.
 
-UI/UX Enhancements
+### Data Persistence & State Management
 
-Custom Toast Notifications: Replaced default browser alerts() with a modern, animated notification system.
+* Complete application state persistence using LocalStorage.
+* Automatic restoration of salary, expenses, and user preferences after page reloads.
+* Instant recalculation of balances after any state update.
+* Dynamic expense deletion with synchronized LocalStorage updates.
 
-Data Visualization: Dynamic Doughnut chart rendering Remaining Balance vs. Total Expenses.
+### Visualization & Alerts
 
-Threshold Alerts: A reactive UI warning banner that triggers immediately when the remaining balance drops below 10% of the base salary.
+* Interactive Doughnut Chart displaying Remaining Balance versus Total Expenses.
+* Threshold-based financial alerts:
 
-Smart Search Modal: A custom modal with a search bar allowing users to find and select currencies (alphabetically sorted, with INR strategically pinned to the top).
+  * Warning state when balance falls below 10% of total salary.
+  * Critical alert state when expenses exceed available funds.
+* Real-time visual feedback as financial data changes.
 
-Data Persistence & Export
+### Currency Management
 
-Persistent Memory: Complete state retention across browser reloads using LocalStorage.
+* Integrated global currency support using live exchange rates.
+* Searchable currency selection modal for improved usability.
+* Alphabetically sorted currency list with frequently used currencies prioritized.
+* Real-time currency conversion throughout the dashboard.
 
-Dynamic Deletion: Trash icon functionality that instantly removes items from the DOM, updates LocalStorage, and recalculates the dashboard.
+### Report Generation
 
-PDF Report Generation: One-click download of a formatted financial ledger containing the user's current state.
+* Export financial reports directly as PDF documents.
+* Unicode-compatible currency rendering including symbols such as ₹, $, €, and £.
+* Professionally formatted reports for record keeping and sharing.
 
-Technical Highlights
+---
 
-Vanilla State Management
+## Technical Highlights
 
-The interface updates dynamically across multiple components using strict Vanilla JavaScript (ES6+), bypassing the need for frameworks like React or Angular.
+### Vanilla JavaScript State Management
 
-Data Persistence (LocalStorage)
+The dashboard updates multiple UI components in real time using native JavaScript, demonstrating manual state management without frameworks such as React or Angular.
 
-Data arrays and current currency states are serialized via JSON.stringify and saved to the browser's LocalStorage, ensuring user data survives page reloads.
+### LocalStorage Integration
 
-Memory Leak Prevention
+Application data is serialized using `JSON.stringify()` and restored using `JSON.parse()` to maintain state persistence across browser sessions.
 
-Chart.js instances are programmatically destroyed (.destroy()) before re-rendering, preventing canvas duplication bugs and browser memory leaks.
+### Chart Lifecycle Management
 
-Native Array Manipulation
+Chart.js instances are properly updated and destroyed before re-rendering to prevent duplicate canvas instances and unnecessary memory usage.
 
-The application fetches 160+ global currencies, dynamically sorts them alphabetically using .sort(), and utilizes .findIndex() and .splice() to prioritize specific currencies (like INR) to the top of the UI list.
+### Array Manipulation
 
-APIs Used
+The application utilizes native array methods including:
 
-ExchangeRate-API (open.er-api.com): Fetches live global exchange rates using USD as the base anchor to facilitate real-time, accurate financial conversions across 160+ world currencies without requiring an API key.
+* `.sort()`
+* `.findIndex()`
+* `.splice()`
+* `.unshift()`
 
-Technologies Used
+to manage expense records and currency ordering efficiently.
 
-HTML5
+---
 
-Tailwind CSS (via CDN)
+## APIs Used
 
-JavaScript (Vanilla JS)
+### ExchangeRate-API
 
-Chart.js (Data Visualization)
+* Fetches live exchange rates for global currencies.
+* Enables real-time currency conversion.
+* Supports international financial calculations without requiring API keys.
 
-jsPDF (Report Generation)
+### Google Fonts API
 
-Lucide Icons
+* Dynamically loads fonts required for Unicode-compatible PDF generation.
+* Ensures proper rendering of international currency symbols within exported reports.
 
-Testing
+---
 
-To evaluate functionality and persistence:
+## Technologies Used
 
-Open the application and input a base salary and multiple expenses.
+* HTML5
+* Tailwind CSS
+* Vanilla JavaScript (ES6+)
+* Chart.js
+* jsPDF
+* Lucide Icons
+* LocalStorage API
 
-Verify the mathematical logic and the pie chart distribution.
+---
 
-Refresh the page (Ctrl+R or Cmd+R) to verify that all data successfully loads from LocalStorage.
+## Testing
+
+To verify functionality:
+
+1. Add a salary value and multiple expenses.
+2. Verify that calculations update correctly.
+3. Test threshold warnings by reducing the available balance.
+4. Refresh the page and confirm LocalStorage persistence.
+5. Export a PDF report and verify formatting.
+6. Test currency switching and exchange rate updates.
+
+---
+
+## Conclusion
+
+The final implementation combines financial tracking, state persistence, data visualization, PDF generation, and live currency conversion into a single self-contained application while demonstrating strong proficiency in Vanilla JavaScript and frontend engineering fundamentals.
