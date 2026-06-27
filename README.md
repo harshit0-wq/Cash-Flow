@@ -4,7 +4,7 @@ A responsive and dynamic financial dashboard built to track salaries and log exp
 
 Live Deployment
 
-Live Demo: []
+Live Demo: [https://cash-flow-chi-six.vercel.app/]
 
 Features
 
