@@ -4,7 +4,7 @@ A responsive and dynamic financial dashboard built to track salaries and manage 
 
 ## Live Deployment
 
-**Live Demo:** [Add Deployment URL Here]
+**Live Demo:** https://cash-flow-git-main-prodest-it.vercel.app/
 
 ---
 
